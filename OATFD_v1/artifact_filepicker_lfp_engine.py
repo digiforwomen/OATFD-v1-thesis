@@ -88,7 +88,7 @@ def _make_no_space_lfp_workdir() -> Path:
         except Exception as e:
             last_err = e
             continue
-    raise RuntimeError(f"Tidak bisa membuat folder kerja no-space untuk LogFileParser: {last_err}")
+    raise RuntimeError(f"Could not create a no-space working folder for LogFileParser: {last_err}")
 
 
 def _copy_lfp_runtime_to(dst_tools: Path):
@@ -201,7 +201,7 @@ def copy_file(src: Path, dst: Path) -> bool:
             return True
         except PermissionError as e:
             last = e
-            log(f"[WAIT] File masih dipakai proses lain, retry {i+1}/10: {src}")
+            log(f"[WAIT] File still in use by another process, retry {i+1}/10: {src}")
             time.sleep(0.75)
         except OSError as e:
             last = e
@@ -815,7 +815,7 @@ def parse_usn(case: Path, usn_file: str=""):
     # If user picks an already parsed CSV, normalize/import it instead of sending it to raw parsers.
     if src.suffix.lower() == ".csv":
         if same_dest:
-            log(f"[USN PARSER] Existing INPUT_PYTHON/usn_parsed.csv dipakai langsung ({count_csv_rows(dest_usn_csv)} rows).")
+            log(f"[USN PARSER] Existing INPUT_PYTHON/usn_parsed.csv used directly ({count_csv_rows(dest_usn_csv)} rows).")
             return True
         # Overwrite prior USN CSV for this run only after ensuring source is different from destination.
         remove_if_exists(dest_usn_csv)
@@ -841,7 +841,7 @@ def parse_usn(case: Path, usn_file: str=""):
                 # Do NOT re-normalize hundreds of thousands of rows here; that made the GUI look frozen.
                 ok_copy = copy_file(mfte_out, case/"INPUT_PYTHON"/"usn_parsed.csv")
                 if ok_copy:
-                    log(f"[USN PARSER] Fast path: MFTECmd CSV langsung dipakai sebagai INPUT_PYTHON/usn_parsed.csv ({rows} rows).")
+                    log(f"[USN PARSER] Fast path: MFTECmd CSV used directly as INPUT_PYTHON/usn_parsed.csv ({rows} rows).")
                     return True
                 log("[WARN] Fast copy of the MFTECmd USN CSV failed. Falling back to normalize/import.")
                 return import_usn_csv(case, str(mfte_out))
@@ -1140,13 +1140,13 @@ def read_csv_auto(path: Path):
                         return [{str(k).strip().replace("\ufeff",""):("" if v is None else str(v).strip()) for k,v in row.items() if k is not None} for row in r]
                 except PermissionError as e:
                     last = e
-                    log(f"[WAIT] CSV masih dipakai proses lain, retry {attempt+1}/10: {path}")
+                    log(f"[WAIT] CSV still in use by another process, retry {attempt+1}/10: {path}")
                     time.sleep(0.75)
                 except Exception as e:
                     last = e
                     pass
         time.sleep(0.25)
-    raise RuntimeError(f"Gagal membaca CSV {path}: {last}")
+    raise RuntimeError(f"Failed to read CSV {path}: {last}")
 
 def parse_dt_any(x):
     t = str(x or "").strip()
@@ -1359,7 +1359,7 @@ def parse_raw_logfile(case: Path, raw_logfile_file: str="", mft_csv: str="", tim
         founds = [p for p in Path(out_for_lfp).rglob("LogFileJoined.csv") if p.is_file()] + [p for p in Path(out_for_lfp).rglob("LogFile.csv") if p.is_file()]
         found = founds[0] if founds else None
     if not found:
-        log("[ERROR] Output CSV LogFileParser tidak ditemukan. Cek folder Parsed_CSV\\LogFile dan debug.log.")
+        log("[ERROR] LogFileParser output CSV not found. Check Parsed_CSV\\LogFile and debug.log.")
         return False
 
     # If output was produced in temp whitespace-safe folder, archive it back to the case output folder.
@@ -2589,7 +2589,7 @@ def detect(case: Path, all_files=True, keyword="", mft_file="", usn_file="", pre
     # Blank / * / ALL / FULL_SCOPE means true all-file detection over the loaded MFT/artifacts.
     # Use a keyword such as "Percobaan Ketujuh" only when you intentionally want to restrict scope.
     if (keyword or '').strip().lower() in {"*", "all", "all_files", "full_scope", "full-scope", "volume", "no_filter", "nofilter", "semua"}:
-        log("[SCOPE] Full-scope/all-file mode aktif: Target Path Keyword dinonaktifkan; semua target MFT dalam input akan dianalisis.")
+        log("[SCOPE] Full-scope/all-file mode active: Target Path Keyword disabled; all MFT targets in input will be analysed.")
         keyword = ""
     elif not (keyword or '').strip():
         log("[SCOPE] Target Path Keyword is empty: full-scope / all-file detection is active. No automatic case-folder-name filter is applied.")
@@ -2602,7 +2602,7 @@ def detect(case: Path, all_files=True, keyword="", mft_file="", usn_file="", pre
     # artifacts in the selected folder. The goal is benchmarking a USN-only dataset fairly:
     # parse/import the selected raw/CSV USN, then immediately generate USN-only evidence outputs.
     if force_usn_only:
-        log("[MODE] FORCE USN-only benchmark mode aktif: hanya $UsnJrnl_$J/USN CSV yang dipakai; semua artefak lain diabaikan.")
+        log("[MODE] FORCE USN-only benchmark mode active: only $UsnJrnl_$J/USN CSV will be used; all other artifacts are ignored.")
         for fn in [
             "mft_parsed.csv", "prefetch_all_parsed.csv", "logfile_parsed.csv",
             "lnk_windows_recent_parsed.csv", "lnk_office_recent_parsed.csv", "i30_parsed.csv",
@@ -2625,7 +2625,7 @@ def detect(case: Path, all_files=True, keyword="", mft_file="", usn_file="", pre
     # If only --usn-file is selected, remove stale parsed CSV from previous multi-artifact runs.
     only_usn_selected = bool(usn_file) and not any([mft_file, prefetch_dir, raw_logfile_file, logfile_csv, win_dir, office_dir, i30_csv])
     if only_usn_selected:
-        log("[MODE] USN-only clean mode aktif: hanya artefak $UsnJrnl_$J yang dipakai; artefak lama di INPUT_PYTHON dibersihkan.")
+        log("[MODE] USN-only clean mode active: only $UsnJrnl_$J artifacts will be used; stale artifacts in INPUT_PYTHON are cleared.")
         for fn in [
             "mft_parsed.csv", "prefetch_all_parsed.csv", "logfile_parsed.csv",
             "lnk_windows_recent_parsed.csv", "lnk_office_recent_parsed.csv", "i30_parsed.csv",
