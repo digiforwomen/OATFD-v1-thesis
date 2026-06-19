@@ -391,11 +391,11 @@ def generate(case: Path) -> bool:
         key_lsn = r.get("key_lsn", "")
 
         if "Suspicious" in str(pred):
-            verdict_cls, verdict_label = "suspicious", "Likely Tampered"
+            verdict_cls, verdict_label = "suspicious", "Suspicious High"
         elif "Need Review" in str(pred):
-            verdict_cls, verdict_label = "review", "Needs Closer Review"
+            verdict_cls, verdict_label = "review", "Need Review"
         else:
-            verdict_cls, verdict_label = "normal", "Appears Normal"
+            verdict_cls, verdict_label = "normal", "Normal"
 
         reason_html += f'''
         <article class="reason-card">
@@ -411,12 +411,6 @@ def generate(case: Path) -> bool:
         '''
 
     def _pred_label(pred):
-        if str(pred) == "Suspicious High":
-            return "Likely Tampered"
-        if str(pred).startswith("High-Risk"):
-            return "High-Risk Indicator"
-        if str(pred) == "Need Review":
-            return "Needs Review"
         return pred
 
     def render_all_file_table(rows, title, desc, limit=180):
@@ -535,12 +529,12 @@ pre{{white-space:pre-wrap;background:#f7fafc;border:1px solid var(--line);paddin
 
   <section class="grid cards">
     <div class="card"><div class="label">Files Examined</div><div class="value">{target_count}</div><div class="note">Unique: {unique_total if unique_total else "n/a"}</div></div>
-    <div class="card danger"><div class="label">Likely Tampered</div><div class="value">{suspicious_count}</div><div class="note">Unique files: {unique_high if unique_high else "n/a"}</div></div>
-    <div class="card warn"><div class="label">High-Risk Indicators</div><div class="value">{high_risk_non_primary_count}</div><div class="note">Supporting artifact anomalies</div></div>
-    <div class="card warn"><div class="label">Needs Closer Look</div><div class="value">{need_review_count}</div><div class="note">Partial signals, not conclusive</div></div>
-    <div class="card blue"><div class="label">Warning Signs</div><div class="value">{behavior_alert_count}</div><div class="note">System time: {system_time_anomaly_count} &middot; deletions: {document_deletion_alert_count}</div></div>
-    <div class="card ok"><div class="label">No Tampering Found</div><div class="value">{normal_count}</div><div class="note">Consistent with normal activity</div></div>
-    <div class="card"><div class="label">Tampering Rate</div><div class="value">{suspicious_pct:.1f}%</div><div class="note">Excluded from analysis: {excluded_count}</div></div>
+    <div class="card danger"><div class="label">Suspicious High</div><div class="value">{suspicious_count}</div><div class="note">Unique files: {unique_high if unique_high else "n/a"}</div></div>
+    <div class="card warn"><div class="label">High-Risk Non-Primary</div><div class="value">{high_risk_non_primary_count}</div><div class="note">Supporting artifact anomalies</div></div>
+    <div class="card warn"><div class="label">Need Review</div><div class="value">{need_review_count}</div><div class="note">Partial signals, not conclusive</div></div>
+    <div class="card blue"><div class="label">Behavior Alerts</div><div class="value">{behavior_alert_count}</div><div class="note">System time: {system_time_anomaly_count} &middot; deletions: {document_deletion_alert_count}</div></div>
+    <div class="card ok"><div class="label">Normal</div><div class="value">{normal_count}</div><div class="note">Consistent with normal activity</div></div>
+    <div class="card"><div class="label">Manipulation Ratio</div><div class="value">{suspicious_pct:.1f}%</div><div class="note">Excluded from analysis: {excluded_count}</div></div>
   </section>
 
   <div class="{info_box_cls}">{explanation_note}</div>
@@ -552,9 +546,9 @@ pre{{white-space:pre-wrap;background:#f7fafc;border:1px solid var(--line);paddin
       <div class="donut-wrap">
         <div class="donut"></div>
         <div class="legend">
-          <div><span class="dot" style="background:var(--danger)"></span>Likely Tampered: <b>{suspicious_count}</b></div>
-          <div><span class="dot" style="background:var(--warn)"></span>High-Risk Indicators: <b>{high_risk_non_primary_count}</b></div>
-          <div><span class="dot" style="background:#cbd5e1"></span>No Tampering Found: <b>{normal_count}</b></div>
+          <div><span class="dot" style="background:var(--danger)"></span>Suspicious High: <b>{suspicious_count}</b></div>
+          <div><span class="dot" style="background:var(--warn)"></span>High-Risk Non-Primary: <b>{high_risk_non_primary_count}</b></div>
+          <div><span class="dot" style="background:#cbd5e1"></span>Normal: <b>{normal_count}</b></div>
           <div style="color:var(--muted);margin-top:12px;font-size:12px">
             Backdating threshold: {esc(summary_dict.get("relative_threshold_days","180"))} days<br>
             Program-run window: {esc(summary_dict.get("prefetch_window_minutes","30"))} minutes
@@ -624,7 +618,7 @@ pre{{white-space:pre-wrap;background:#f7fafc;border:1px solid var(--line);paddin
   {render_all_file_table(all_file_sorted, "All Files Analyzed", "Complete list of every file examined, sorted by risk level. Use this table to get a quick overview of all assessed files.", 220)}
 
   <section class="panel">
-    <h2>Warning Signs &amp; System Events</h2>
+    <h2>Behavior Alerts / System-Level Context</h2>
     <p class="section-desc">
       These are contextual signals that do not by themselves prove tampering, but are worth noting as part of the investigation.
       Examples: the system clock was changed while files were being accessed, or relevant files were deleted.
@@ -636,9 +630,9 @@ pre{{white-space:pre-wrap;background:#f7fafc;border:1px solid var(--line);paddin
     </table>
   </section>
 
-  {render_all_file_table(high_risk_non_primary_rows, "High-Risk Indicators (Supporting Artifacts)", "Anomalies found in supporting artifacts such as Prefetch traces, shortcut files, directory index entries, or known tampering tool names. These strengthen the overall case picture but are not standalone proof of tampering.", 120)}
-  {render_all_file_table(need_review_rows, "Files Needing Closer Review", "These files show some suspicious signals but not enough evidence to confirm tampering conclusively. A human analyst should examine them in more detail before drawing conclusions.", 120)}
-  {render_all_file_table(normal_rows, "Files with No Tampering Signs", "These files were fully examined and no indicators of timestamp manipulation were found. They are consistent with normal file activity.", 120)}
+  {render_all_file_table(high_risk_non_primary_rows, "High-Risk Non-Primary Artifact Anomalies", "Anomalies found in supporting artifacts such as Prefetch traces, shortcut files, directory index entries, or known tampering tool names. These strengthen the overall case picture but are not standalone proof of tampering.", 120)}
+  {render_all_file_table(need_review_rows, "Need Review / Context-Guarded Candidates", "These files show some suspicious signals but not enough evidence to confirm tampering conclusively. A human analyst should examine them in more detail before drawing conclusions.", 120)}
+  {render_all_file_table(normal_rows, "Normal / Context-Explained Files", "These files were fully examined and no indicators of timestamp manipulation were found. They are consistent with normal file activity.", 120)}
 
   <section class="panel">
     <h2>Event Timeline for Suspicious Files</h2>
