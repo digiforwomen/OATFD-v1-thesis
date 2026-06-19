@@ -203,15 +203,15 @@ def generate(case: Path) -> bool:
         if behavior_alert_count:
             plain_summary += (
                 f" {behavior_alert_count} system-level warning sign(s) were also detected "
-                f"(see <em>Warning Signs</em> below)."
+                f"(see <em>Behavior Alerts</em> below)."
             )
         info_box_cls = "info-box"
         explanation_note = (
             "<b>How to read this report:</b> "
-            "&ldquo;Likely Tampered&rdquo; means strong, cross-artifact evidence shows a file&rsquo;s timestamps "
+            "&ldquo;Suspicious High&rdquo; means strong, cross-artifact evidence shows a file&rsquo;s timestamps "
             "were deliberately changed after the fact. "
-            "&ldquo;Needs Closer Look&rdquo; means some suspicious signals exist but are not conclusive on their own. "
-            "&ldquo;Warning Signs&rdquo; are system events &mdash; such as a system-clock change or file deletion &mdash; "
+            "&ldquo;Need Review&rdquo; means some suspicious signals exist but are not conclusive on their own. "
+            "&ldquo;Behavior Alerts&rdquo; are system events &mdash; such as a system-clock change or file deletion &mdash; "
             "that provide investigative context but are not manipulation verdicts by themselves. "
             "The <em>Risk Score</em> is relative: higher means more evidence sources agree on tampering. "
             "This tool provides indicators for analyst review &mdash; it does not automatically prove intent."
