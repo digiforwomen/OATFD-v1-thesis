@@ -34,4 +34,4 @@ How to run
 1. Extract the package into a short path, for example C:\OATFD_V1\.
 2. Run RUN_FILEPICKER_LFP_APP.bat.
 3. Select the relevant artifact files through the GUI.
-4. Review outputs in the generated MINI_NLT_OUTPUT folder.
+4. Review outputs in the generated OATFD_OUTPUT folder.

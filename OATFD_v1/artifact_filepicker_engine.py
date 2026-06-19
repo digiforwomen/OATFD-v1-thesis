@@ -33,7 +33,7 @@ MINI_NLT = APP_DIR / "mini_nlt_prototype.py"
 def log(x): print(x, flush=True)
 def ensure(p: Path): p.mkdir(parents=True, exist_ok=True)
 def case_dirs(case: Path):
-    for d in ["Parsed_CSV/MFT", "Parsed_CSV/USN", "Parsed_CSV/Prefetch", "Parsed_CSV/LNK", "Parsed_CSV/LogFile", "INPUT_PYTHON", "MINI_NLT_OUTPUT"]:
+    for d in ["Parsed_CSV/MFT", "Parsed_CSV/USN", "Parsed_CSV/Prefetch", "Parsed_CSV/LNK", "Parsed_CSV/LogFile", "INPUT_PYTHON", "OATFD_OUTPUT"]:
         ensure(case / d)
 
 def run(args):
@@ -309,8 +309,8 @@ def status(case: Path, mft_file="", usn_file="", prefetch_dir="", log_csv="", wi
         ("usn_parsed.csv", case/"INPUT_PYTHON"/"usn_parsed.csv"),
         ("prefetch_all_parsed.csv", case/"INPUT_PYTHON"/"prefetch_all_parsed.csv"),
         ("logfile_parsed.csv", case/"INPUT_PYTHON"/"logfile_parsed.csv"),
-        ("timeline_events.csv", case/"MINI_NLT_OUTPUT"/"timeline_events.csv"),
-        ("detection_matrix.csv", case/"MINI_NLT_OUTPUT"/"detection_matrix.csv"),
+        ("timeline_events.csv", case/"OATFD_OUTPUT"/"timeline_events.csv"),
+        ("detection_matrix.csv", case/"OATFD_OUTPUT"/"detection_matrix.csv"),
     ]
     for label, p in pairs:
         exists = bool(p and p.exists())

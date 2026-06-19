@@ -46,7 +46,7 @@ python mini_nlt_prototype.py --case "Z:\\Thesis\\Case_E01" --raw-dir "Z:\\Thesis
 python mini_nlt_prototype.py --input "Z:\\Thesis\\Case_E01\\INPUT_PYTHON" --detect-only --all-files
 
 Output:
-<case>\\MINI_NLT_OUTPUT\\
+<case>\\OATFD_OUTPUT\\
 - detection_matrix.csv
 - case_reasoning.csv
 - suspicious_behavior_detection.csv
@@ -683,7 +683,7 @@ def experimental_logfile_carve(logfile: Path, mft_csv: Path, output: Path, targe
                     "EventTime(UTC+7)": "",
                     "Event": "ExperimentalLogFileContext",
                     "Detail": f"target={name}; filename found but no nearby FILETIME candidate",
-                    "Source": "MiniNLT experimental logfile carver",
+                    "Source": "OATFD internal logfile carver",
                     "TargetName": name,
                     "Confidence": "Low",
                 })
@@ -695,7 +695,7 @@ def experimental_logfile_carve(logfile: Path, mft_csv: Path, output: Path, targe
                     "EventTime(UTC+7)": local.isoformat(sep=" "),
                     "Event": "ExperimentalLogFileContext",
                     "Detail": f"target={name}; candidate_time_utc={dt_utc.isoformat(sep=' ')}; byte_distance={dist}; name_offset={name_off}; filetime_offset={ft_off}",
-                    "Source": "MiniNLT experimental logfile carver",
+                    "Source": "OATFD internal logfile carver",
                     "TargetName": name,
                     "Confidence": "Medium" if dist <= 512 else "Low",
                 })
@@ -4047,7 +4047,7 @@ def _is_doc_deletion_candidate(name: str, path: str, reason: str) -> bool:
     if any(tok in low_context for tok in [
         "\\windows\\", "\\program files", "\\programdata\\microsoft\\search",
         "\\system volume information", "\\$extend", "\\appdata\\local\\temp",
-        "\\input_python", "\\mini_nlt_output", "\\output_python",
+        "\\input_python", "\\oatfd_output", "\\output_python",
     ]):
         return False
     return True
@@ -4626,13 +4626,13 @@ def detect(input_dir: Path, out_dir: Path, all_files=False, target_keyword="", e
 # ============================================================
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="Mini NLT-like prototype for NTFS timestamp manipulation detection.")
+    ap = argparse.ArgumentParser(description="OATFD detection engine for NTFS timestamp manipulation analysis.")
     src = ap.add_mutually_exclusive_group(required=False)
     src.add_argument("--case", default="", help="Folder case. Dipakai untuk parse+detect.")
     src.add_argument("--input", default="", help="Folder INPUT_PYTHON jika hanya ingin detect.")
 
     ap.add_argument("--raw-dir", default="", help="Folder artefak mentah. Default: <case> atau <case>\\RAW_ARTIFACTS jika ada.")
-    ap.add_argument("--output", default="", help="Folder output final. Default: <case>\\MINI_NLT_OUTPUT atau <input>\\MINI_NLT_OUTPUT.")
+    ap.add_argument("--output", default="", help="Folder output final. Default: <case>\\OATFD_OUTPUT atau <input>\\OATFD_OUTPUT.")
     ap.add_argument("--tool-roots", default="Z:\\,C:\\TOOLS,C:\\Users\\vboxuser\\Downloads,C:\\")
     ap.add_argument("--mftecmd", default="")
     ap.add_argument("--pecmd", default="")
@@ -4664,7 +4664,7 @@ def main() -> int:
 
     raw_dir = Path(args.raw_dir) if args.raw_dir else ((case_dir / "RAW_ARTIFACTS") if (case_dir / "RAW_ARTIFACTS").exists() else case_dir)
     parsed_dir = case_dir / "Parsed_CSV"
-    out_dir = Path(args.output) if args.output else case_dir / "MINI_NLT_OUTPUT"
+    out_dir = Path(args.output) if args.output else case_dir / "OATFD_OUTPUT"
 
     ensure_dir(input_dir)
     ensure_dir(parsed_dir)

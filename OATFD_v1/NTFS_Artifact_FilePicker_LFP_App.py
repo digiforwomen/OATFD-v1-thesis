@@ -297,7 +297,7 @@ class App(tk.Tk):
         if not case:
             messagebox.showwarning("Missing input", "Please fill in the Case Folder first.")
             return
-        p = Path(case) / "MINI_NLT_OUTPUT" / "visual_dashboard.html"
+        p = Path(case) / "OATFD_OUTPUT" / "visual_dashboard.html"
         if not p.exists():
             messagebox.showwarning("Visual report not available", "Click Generate Visual Report after running Detect + Timeline.")
             return
@@ -337,7 +337,7 @@ class App(tk.Tk):
         if not case:
             messagebox.showwarning("Missing input", "Please fill in the Case Folder first.")
             return
-        p = Path(case) / "MINI_NLT_OUTPUT"
+        p = Path(case) / "OATFD_OUTPUT"
         p.mkdir(parents=True, exist_ok=True)
         os.startfile(str(p))
 

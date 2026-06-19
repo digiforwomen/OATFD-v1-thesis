@@ -40,7 +40,7 @@ def log(x): print(x, flush=True)
 def ensure(p: Path): p.mkdir(parents=True, exist_ok=True)
 
 def case_dirs(case: Path):
-    for d in ["Parsed_CSV/MFT", "Parsed_CSV/USN", "Parsed_CSV/Prefetch", "Parsed_CSV/LNK", "Parsed_CSV/LogFile", "INPUT_PYTHON", "MINI_NLT_OUTPUT"]:
+    for d in ["Parsed_CSV/MFT", "Parsed_CSV/USN", "Parsed_CSV/Prefetch", "Parsed_CSV/LNK", "Parsed_CSV/LogFile", "INPUT_PYTHON", "OATFD_OUTPUT"]:
         ensure(case / d)
 
 def run(args):
@@ -448,7 +448,7 @@ def _apply_strict_reporting_guards(rows):
 
 def postprocess_standard_reports(case: Path) -> None:
     """Ensure v1.0 reporting files exist even when full matrix engine succeeds."""
-    out = case/'MINI_NLT_OUTPUT'
+    out = case/'OATFD_OUTPUT'
     matrix_path = out/'detection_matrix.csv'
     if not matrix_path.exists() or count_csv_rows(matrix_path) <= 0:
         return
@@ -588,7 +588,7 @@ def generic_artifact_fallback_detect(case: Path, keyword: str = '') -> bool:
     """
     case_dirs(case)
     inp = case/'INPUT_PYTHON'
-    out = case/'MINI_NLT_OUTPUT'
+    out = case/'OATFD_OUTPUT'
     ready = case/'OUTPUT_UNIVERSAL_FALLBACK'
     ensure(out); ensure(ready)
 
@@ -2063,7 +2063,7 @@ def usn_only_direct_detect(case: Path, target_keyword: str = '', max_timeline_pe
     - Keep output responsive on large Jung Oh journals by aggregating while streaming.
     """
     case_dirs(case)
-    out = case/'MINI_NLT_OUTPUT'
+    out = case/'OATFD_OUTPUT'
     ensure(out)
     usn_path = case/'INPUT_PYTHON'/'usn_parsed.csv'
     if not usn_path.exists():
@@ -2118,7 +2118,7 @@ def usn_only_direct_detect(case: Path, target_keyword: str = '', max_timeline_pe
         if not any(tok in compact for tok in ['filedelete', 'filedeleted', 'deleted', 'delete']):
             return False
         ctx = (str(path or '') + '\\' + base).replace('/', '\\').lower()
-        if any(tok in ctx for tok in ['\\windows\\', '\\program files', '\\programdata\\microsoft\\search', '\\system volume information', '\\$extend', '\\appdata\\local\\temp', '\\input_python', '\\mini_nlt_output', '\\output_python']):
+        if any(tok in ctx for tok in ['\\windows\\', '\\program files', '\\programdata\\microsoft\\search', '\\system volume information', '\\$extend', '\\appdata\\local\\temp', '\\input_python', '\\oatfd_output', '\\output_python']):
             return False
         return True
 
@@ -2706,7 +2706,7 @@ def detect(case: Path, all_files=True, keyword="", mft_file="", usn_file="", pre
     if rc != 0:
         log(f"[WARN] The full matrix engine failed (exit={rc}). The universal fallback will try to create a conservative output from the available artifacts.")
         return generic_artifact_fallback_detect(case, keyword)
-    matrix_path = case/"MINI_NLT_OUTPUT"/"detection_matrix.csv"
+    matrix_path = case/"OATFD_OUTPUT"/"detection_matrix.csv"
     matrix_rows = count_csv_rows(matrix_path)
     if matrix_rows == 0:
         log("[WARN] The full matrix engine finished, but detection_matrix.csv is empty. The universal no-empty fallback is active.")
@@ -2750,8 +2750,8 @@ def status(case: Path, mft_file="", usn_file="", prefetch_dir="", raw_logfile_fi
         ("prefetch_all_parsed.csv", case/"INPUT_PYTHON"/"prefetch_all_parsed.csv"),
         ("logfile_parsed.csv", case/"INPUT_PYTHON"/"logfile_parsed.csv"),
         ("i30_parsed.csv", case/"INPUT_PYTHON"/"i30_parsed.csv"),
-        ("timeline_events.csv", case/"MINI_NLT_OUTPUT"/"timeline_events.csv"),
-        ("detection_matrix.csv", case/"MINI_NLT_OUTPUT"/"detection_matrix.csv"),
+        ("timeline_events.csv", case/"OATFD_OUTPUT"/"timeline_events.csv"),
+        ("detection_matrix.csv", case/"OATFD_OUTPUT"/"detection_matrix.csv"),
     ]
     log("[STATUS]")
     for label, p in pairs:
