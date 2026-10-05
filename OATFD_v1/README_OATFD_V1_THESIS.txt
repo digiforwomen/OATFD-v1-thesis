@@ -17,7 +17,7 @@ Output interpretation
 ---------------------
 - Suspicious High: final high-confidence primary timestamp-manipulation decision.
 - Need Review: ambiguous or insufficiently corroborated candidate requiring analyst review.
-- Behavior Alerts: contextual signals, not final timestamp-manipulation verdicts.
+- High-Risk Non-Primary Artifact: contextual signals, not final timestamp-manipulation verdicts.
 - Normal: observed artifact pattern is sufficiently explained by ordinary operation grammar.
 
 Version constants
