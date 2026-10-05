@@ -34,7 +34,18 @@ MFTECMD = TOOLS_DIR / "MFTECmd.exe"
 PECMD = TOOLS_DIR / "PECmd.exe"
 LECMD = TOOLS_DIR / "LECmd.exe"
 LOGFILEPARSER64 = TOOLS_DIR / "LogFileParser64.exe"
-MINI_NLT = APP_DIR / "mini_nlt_prototype.py"
+OATFD_ENGINE = APP_DIR / "oatfd_engine.py"
+
+def _ensure_sqlite3_x64() -> None:
+    dst = TOOLS_DIR / "sqlite3.dll"
+    x64 = TOOLS_DIR / "Lib" / "x64" / "sqlite3.dll"
+    if x64.exists() and x64.stat().st_size > (dst.stat().st_size if dst.exists() else 0):
+        try:
+            shutil.copy2(x64, dst)
+        except Exception:
+            pass
+
+_ensure_sqlite3_x64()
 
 def log(x): print(x, flush=True)
 def ensure(p: Path): p.mkdir(parents=True, exist_ok=True)
@@ -2076,7 +2087,7 @@ def usn_only_direct_detect(case: Path, target_keyword: str = '', max_timeline_pe
     row_count = 0
 
     # v1.0: USN-only behavior alerts must be computed inside this streaming path.
-    # The full mini_nlt_prototype behavior layer is not executed when the LFP engine
+    # The full OATFD ENGINE behavior layer is not executed when the LFP engine
     # chooses adaptive USN-only direct mode, so we collect NLT-like alerts here.
     behavior_alerts = []
     system_time_anomalies = []
@@ -2693,10 +2704,10 @@ def detect(case: Path, all_files=True, keyword="", mft_file="", usn_file="", pre
         log(f"[MODE] Large-USN no-freeze guard is active ({usn_rows_current} rows). The full engine was skipped; the output was created in USN-only benchmark mode.")
         return usn_only_direct_detect(case, keyword, usn_profile=usn_profile)
 
-    if not MINI_NLT.exists():
-        log(f"[ERROR] mini_nlt_prototype.py is missing: {MINI_NLT}")
+    if not OATFD_ENGINE.exists():
+        log(f"[ERROR] oatfd_engine.py is missing: {OATFD_ENGINE}")
         return False
-    cmd = [sys.executable, str(MINI_NLT), "--input", str(case/"INPUT_PYTHON"), "--detect-only"]
+    cmd = [sys.executable, str(OATFD_ENGINE), "--input", str(case/"INPUT_PYTHON"), "--detect-only"]
     if all_files:
         cmd.append("--all-files")
     if keyword:

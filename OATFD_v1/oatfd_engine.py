@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-mini_nlt_prototype.py
+oatfd_engine.py
 
-Mini NLT-like Prototype untuk penelitian deteksi indikasi manipulasi timestamp NTFS.
+OATFD ENGINE untuk penelitian deteksi indikasi manipulasi timestamp NTFS.
 
 STATUS AKADEMIK:
 - Ini BUKAN clone penuh NTFS Log Tracker 1.9.
@@ -29,7 +29,7 @@ KLAIM YANG BENAR:
 CONTOH PENGGUNAAN
 
 1) Dari folder case yang sudah berisi artefak mentah:
-python mini_nlt_prototype.py --case "Z:\\Thesis\\Case_E01" --all
+python oatfd_engine.py --case "Z:\\Thesis\\Case_E01" --all
 
 Struktur artefak yang dicari:
 <case>\\$MFT
@@ -40,10 +40,10 @@ Struktur artefak yang dicari:
 <case>\\LNK_OfficeRecent\\*.lnk
 
 2) Jika artefak mentah ada di RAW_ARTIFACTS:
-python mini_nlt_prototype.py --case "Z:\\Thesis\\Case_E01" --raw-dir "Z:\\Thesis\\Case_E01\\RAW_ARTIFACTS" --all
+python oatfd_engine.py --case "Z:\\Thesis\\Case_E01" --raw-dir "Z:\\Thesis\\Case_E01\\RAW_ARTIFACTS" --all
 
 3) Jika sudah punya INPUT_PYTHON:
-python mini_nlt_prototype.py --input "Z:\\Thesis\\Case_E01\\INPUT_PYTHON" --detect-only --all-files
+python oatfd_engine.py --input "Z:\\Thesis\\Case_E01\\INPUT_PYTHON" --detect-only --all-files
 
 Output:
 <case>\\OATFD_OUTPUT\\
@@ -1953,18 +1953,18 @@ def lsn_transition_features(mf: Dict[str, object], lf: Dict[str, object]) -> Dic
     reasons = []
     if exact and std and (upd or ts or undo_redo):
         strength += 8
-        reasons.append("MFT record header LSN EXACT match dengan $LogFile metadata/timestamp transaction")
+        reasons.append("MFT record header LSN EXACT match with $LogFile metadata/timestamp transaction")
     elif near and std and (upd or ts or undo_redo):
         strength += 6
-        reasons.append("MFT record header LSN NEAR match dengan transaksi $LogFile metadata/timestamp")
+        reasons.append("MFT record header LSN NEAR match with $LogFile metadata/timestamp transaction")
     elif std and (upd or ts or undo_redo):
-        # Konteks penting, tetapi tidak cukup untuk menaikkan file normal menjadi suspicious.
-        # $STANDARD_INFORMATION update bisa terjadi pada operasi normal create/open/save.
+        # Important context, but not sufficient to escalate a normal file to suspicious.
+        # $STANDARD_INFORMATION update can occur during normal create/open/save operations.
         strength += 2
-        reasons.append("$LogFile menunjukkan $STANDARD_INFORMATION update, tetapi tanpa LSN exact/near match")
+        reasons.append("$LogFile shows $STANDARD_INFORMATION update, but without LSN exact/near match")
     elif ts:
         strength += 1
-        reasons.append("$LogFile menunjukkan timestamp update tanpa LSN match")
+        reasons.append("$LogFile shows timestamp update without LSN match")
 
     # LSN-linked candidate harus ketat: exact/near match wajib.
     if not (exact or near):
@@ -2083,27 +2083,27 @@ def lowlevel_features(mf: Dict[str, object], uf: Dict[str, object], lf: Dict[str
     future_non_access = [x for x in future_fields if not x.startswith("A:")]
     if future_non_access and (logfile_update or usn_basic):
         strength += 5
-        reasons.append("future timestamp non-Access terhadap anchor")
+        reasons.append("future timestamp non-Access relative to anchor")
     elif future_fields:
-        reasons.append("future Accessed-only terhadap anchor (weak context)")
+        reasons.append("future Accessed-only relative to anchor (weak context)")
 
     delta_non_access = [x for x in delta_pairs if not x.startswith("A:")]
     if delta_non_access and (logfile_update or usn_basic):
         strength += 4
-        reasons.append("SI/FN field-level delta non-Access >=4 menit + metadata/journal support")
+        reasons.append("SI/FN field-level delta non-Access >=4 min + metadata/journal support")
     elif delta_non_access:
         # v1.0: A strong SI/FN non-access delta remains meaningful even when
         # USN/LogFile path matching is unavailable. It should not be mislabeled
         # as Accessed-only. The final decision layer still prevents this from
         # becoming Suspicious High inside normal/context folders.
         strength += 3
-        reasons.append("SI/FN field-level delta non-Access >=4 menit tanpa journal support")
+        reasons.append("SI/FN field-level delta non-Access >=4 min without journal support")
     elif delta_pairs:
-        reasons.append("SI/FN delta Accessed-only >=5 menit (weak context)")
+        reasons.append("SI/FN delta Accessed-only >=5 min (weak context)")
 
     if suspicious_fraction >= 2 and (usn_basic or (logfile_update and delta_pairs)):
         strength += 4
-        reasons.append("pola sub-second artifisial/100ns pada timestamp SI")
+        reasons.append("artificial sub-second/100ns pattern on SI timestamp")
 
     if rounded_second >= 2 and delta_pairs and (logfile_update or usn_basic):
         strength += 3
@@ -2111,12 +2111,12 @@ def lowlevel_features(mf: Dict[str, object], uf: Dict[str, object], lf: Dict[str
 
     if spread_days >= (30.0 / 1440.0) and (usn_basic or delta_pairs) and not rf.get("mft_relative_backdated") == "Yes":
         strength += 2
-        reasons.append("spread timestamp internal >30 menit dengan metadata-change evidence")
+        reasons.append("internal timestamp spread >30 min with metadata-change evidence")
 
     # Metadata-only grammar: BasicInfoChange tanpa data change lebih kuat.
     if usn_basic and not usn_data and logfile_update:
         strength += 2
-        reasons.append("metadata-only grammar: USN BasicInfoChange tanpa data write besar + LogFile update")
+        reasons.append("metadata-only grammar: USN BasicInfoChange without large data write + LogFile update")
 
     # LSN-linked transaction is NOT a mutation-core by itself.
     # A normal create/save operation can also have MFT header LSN + $LogFile metadata update.
@@ -2189,10 +2189,10 @@ def score(row: Dict[str, object]) -> Dict[str, object]:
         return delta_pair_kinds(text_obj)
 
     def support_control_reason() -> str:
-        # REALCASE v1.0: tidak ada label Excluded.
-        # Fungsi ini sengaja tetap mengembalikan string kosong agar file support/temp
-        # tidak dikeluarkan dari analisis. Guard kontekstual diterapkan di bawah,
-        # setelah bukti USN/$LogFile/MFT dibaca.
+        # REALCASE v1.0: no Excluded label.
+        # This function intentionally returns an empty string so that support/temp files
+        # are not excluded from analysis. Contextual guards are applied below,
+        # after USN/$LogFile/MFT evidence has been read.
         return ""
 
     support_reason = support_control_reason()
@@ -2222,7 +2222,7 @@ def score(row: Dict[str, object]) -> Dict[str, object]:
         "ground_truth_used_for_detection": "False",
         "all_file_detection_mode": "True",
         "evidence_basis": best_direct if str(prediction).startswith("Suspicious") else (best_operation if prediction == "Normal" else "ambiguous_evidence"),
-            "reasons": "File kontrol/support/output aplikasi dikeluarkan dari target deteksi; bukan objek evaluasi timestamp.",
+            "reasons": "Control/support/application output file excluded from detection target; not a timestamp evaluation object.",
         })
         return row
 

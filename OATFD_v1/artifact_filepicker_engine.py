@@ -14,8 +14,8 @@ Tujuan: menghindari masalah folder picker yang tidak menampilkan file $MFT/$UsnJ
 """
 
 from __future__ import annotations
-import argparse, csv, re, shutil, subprocess, sys
-from datetime import datetime
+import argparse, csv, re, shutil, struct, subprocess, sys
+from datetime import datetime, timedelta
 from pathlib import Path
 
 try:
@@ -28,7 +28,18 @@ TOOLS_DIR = APP_DIR / "TOOLS"
 MFTECMD = TOOLS_DIR / "MFTECmd.exe"
 PECMD = TOOLS_DIR / "PECmd.exe"
 LECMD = TOOLS_DIR / "LECmd.exe"
-MINI_NLT = APP_DIR / "mini_nlt_prototype.py"
+OATFD_ENGINE = APP_DIR / "oatfd_engine.py"
+
+def _ensure_sqlite3_x64() -> None:
+    dst = TOOLS_DIR / "sqlite3.dll"
+    x64 = TOOLS_DIR / "Lib" / "x64" / "sqlite3.dll"
+    if x64.exists() and (not dst.exists() or x64.stat().st_size > dst.stat().st_size):
+        try:
+            shutil.copy2(x64, dst)
+        except Exception:
+            pass
+
+_ensure_sqlite3_x64()
 
 def log(x): print(x, flush=True)
 def ensure(p: Path): p.mkdir(parents=True, exist_ok=True)
@@ -131,25 +142,204 @@ def parse_prefetch(case: Path, prefetch_dir: str=""):
     rc = run([str(PECMD), "-d", str(src), "--csv", str(out), "--csvf", "prefetch_all_parsed.csv"])
     return rc == 0 and copy_file(out/"prefetch_all_parsed.csv", case/"INPUT_PYTHON"/"prefetch_all_parsed.csv")
 
+def _filetime_to_iso(v: int) -> str:
+    try:
+        if not v:
+            return ""
+        return (datetime(1601, 1, 1) + timedelta(microseconds=v // 10)).strftime("%Y-%m-%d %H:%M:%S.%f")
+    except Exception:
+        return ""
+
+def _read_cstring_ascii(data: bytes, off: int) -> str:
+    if off <= 0 or off >= len(data):
+        return ""
+    end = data.find(b"\x00", off)
+    if end < 0:
+        end = min(len(data), off + 4096)
+    try:
+        return data[off:end].decode("mbcs", errors="replace").strip()
+    except Exception:
+        return data[off:end].decode("latin1", errors="replace").strip()
+
+def _read_cstring_utf16(data: bytes, off: int) -> str:
+    if off <= 0 or off >= len(data) - 1:
+        return ""
+    end = off
+    max_end = min(len(data) - 1, off + 8192)
+    while end < max_end:
+        if data[end:end+2] == b"\x00\x00":
+            break
+        end += 2
+    try:
+        return data[off:end].decode("utf-16le", errors="replace").strip()
+    except Exception:
+        return ""
+
+def _parse_string_data(data: bytes, off: int, is_unicode: bool):
+    if off + 2 > len(data):
+        return "", off
+    try:
+        count = struct.unpack_from("<H", data, off)[0]
+    except Exception:
+        return "", off
+    off += 2
+    if count <= 0 or count > 32767:
+        return "", off
+    if is_unicode:
+        size = count * 2
+        raw = data[off:off+size]
+        try:
+            val = raw.decode("utf-16le", errors="replace")
+        except Exception:
+            val = ""
+        off += size
+    else:
+        raw = data[off:off+count]
+        try:
+            val = raw.decode("mbcs", errors="replace")
+        except Exception:
+            val = raw.decode("latin1", errors="replace")
+        off += count
+    return val.strip("\x00").strip(), off
+
+def _extract_lnk_strings(data: bytes, limit: int = 80) -> str:
+    strings = []
+    try:
+        for m in re.finditer(rb"(?:[\x20-\x7e]\x00){4,}", data):
+            try:
+                s2 = m.group(0).decode("utf-16le", errors="ignore").strip("\x00").strip()
+                if len(s2) >= 4:
+                    strings.append(s2)
+            except Exception:
+                pass
+    except Exception:
+        pass
+    try:
+        for m in re.finditer(rb"[\x20-\x7e]{4,}", data):
+            try:
+                s2 = m.group(0).decode("latin1", errors="ignore").strip()
+                if len(s2) >= 4:
+                    strings.append(s2)
+            except Exception:
+                pass
+    except Exception:
+        pass
+    out = []
+    seen = set()
+    for s2 in strings:
+        key = s2.lower()
+        if key not in seen:
+            seen.add(key)
+            out.append(s2)
+        if len(out) >= limit:
+            break
+    return " | ".join(out)
+
+def _parse_lnk_file_internal(path: Path) -> dict:
+    data = path.read_bytes()
+    row = {
+        "SourceFile": str(path), "SourceName": path.name,
+        "Parser": "InternalPythonLnkParser",
+        "HeaderCreated": "", "HeaderAccessed": "", "HeaderModified": "",
+        "FileSize": "", "LocalBasePath": "", "CommonPathSuffix": "",
+        "RelativePath": "", "WorkingDirectory": "", "Arguments": "",
+        "IconLocation": "", "AllStrings": "", "ParseStatus": "OK",
+    }
+    try:
+        if len(data) < 0x4C or data[:4] != b"\x4c\x00\x00\x00":
+            row["ParseStatus"] = "NotLNKHeader"
+            row["AllStrings"] = _extract_lnk_strings(data)
+            return row
+        link_flags = struct.unpack_from("<I", data, 0x14)[0]
+        row["HeaderCreated"]  = _filetime_to_iso(struct.unpack_from("<Q", data, 0x1C)[0])
+        row["HeaderAccessed"] = _filetime_to_iso(struct.unpack_from("<Q", data, 0x24)[0])
+        row["HeaderModified"] = _filetime_to_iso(struct.unpack_from("<Q", data, 0x2C)[0])
+        row["FileSize"] = str(struct.unpack_from("<I", data, 0x34)[0])
+        off = 0x4C
+        if link_flags & 0x00000001:
+            if off + 2 <= len(data):
+                idlist_size = struct.unpack_from("<H", data, off)[0]
+                off += 2 + idlist_size
+        if link_flags & 0x00000002 and off + 0x1C <= len(data):
+            li_base = off
+            li_size = struct.unpack_from("<I", data, li_base)[0]
+            li_header_size = struct.unpack_from("<I", data, li_base + 4)[0]
+            if li_size > 0 and li_base + li_size <= len(data):
+                local_base_off = struct.unpack_from("<I", data, li_base + 16)[0]
+                suffix_off = struct.unpack_from("<I", data, li_base + 24)[0]
+                if local_base_off:
+                    row["LocalBasePath"] = _read_cstring_ascii(data, li_base + local_base_off)
+                if suffix_off:
+                    row["CommonPathSuffix"] = _read_cstring_ascii(data, li_base + suffix_off)
+                if li_header_size >= 0x24 and li_base + 36 <= len(data):
+                    try:
+                        local_base_u = struct.unpack_from("<I", data, li_base + 28)[0]
+                        suffix_u = struct.unpack_from("<I", data, li_base + 32)[0]
+                        if local_base_u:
+                            val = _read_cstring_utf16(data, li_base + local_base_u)
+                            if val:
+                                row["LocalBasePath"] = val
+                        if suffix_u:
+                            val = _read_cstring_utf16(data, li_base + suffix_u)
+                            if val:
+                                row["CommonPathSuffix"] = val
+                    except Exception:
+                        pass
+                off += li_size
+        is_unicode = bool(link_flags & 0x00000080)
+        for flag, name in [
+            (0x00000004, "NameString"), (0x00000008, "RelativePath"),
+            (0x00000010, "WorkingDirectory"), (0x00000020, "Arguments"),
+            (0x00000040, "IconLocation"),
+        ]:
+            if link_flags & flag:
+                val, off = _parse_string_data(data, off, is_unicode)
+                row[name] = val
+        row["AllStrings"] = _extract_lnk_strings(data)
+    except Exception as e:
+        row["ParseStatus"] = "Error: " + str(e)
+        row["AllStrings"] = _extract_lnk_strings(data)
+    return row
+
+def _parse_lnk_dir_internal(src_dir: Path, out_csv: Path, label: str) -> bool:
+    ensure(out_csv.parent)
+    files = [p for p in src_dir.rglob("*") if p.is_file() and p.suffix.lower() == ".lnk"]
+    rows = []
+    for p in files:
+        try:
+            r = _parse_lnk_file_internal(p)
+            r["SourceSet"] = label
+            rows.append(r)
+        except Exception as e:
+            rows.append({"SourceFile": str(p), "SourceName": p.name, "SourceSet": label,
+                         "Parser": "InternalPythonLnkParser", "ParseStatus": "Error: " + str(e), "AllStrings": ""})
+    fields = ["SourceSet", "SourceFile", "SourceName", "Parser", "ParseStatus",
+              "HeaderCreated", "HeaderAccessed", "HeaderModified", "FileSize",
+              "LocalBasePath", "CommonPathSuffix", "RelativePath", "WorkingDirectory",
+              "Arguments", "IconLocation", "AllStrings"]
+    with out_csv.open("w", encoding="utf-8-sig", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=fields, extrasaction="ignore")
+        w.writeheader()
+        w.writerows(rows)
+    log(f"[INTERNAL LNK] {label}: {len(rows)} .lnk parsed -> {out_csv}")
+    return True
+
 def parse_lnk(case: Path, win_dir: str="", office_dir: str=""):
     case_dirs(case)
-    if not LECMD.exists():
-        log(f"[ERROR] LECmd.exe is missing: {LECMD}")
-        return False
     out = case/"Parsed_CSV"/"LNK"
     ok = False
     w = Path(win_dir) if win_dir else find_dir(case, ["LNK_WindowsRecent", "WindowsRecent"])
     o = Path(office_dir) if office_dir else find_dir(case, ["LNK_OfficeRecent", "OfficeRecent"])
     if w and w.exists():
-        rc = run([str(LECMD), "-d", str(w), "--csv", str(out), "--csvf", "lnk_windows_recent_parsed.csv"])
-        if rc == 0:
-            ok = copy_file(out/"lnk_windows_recent_parsed.csv", case/"INPUT_PYTHON"/"lnk_windows_recent_parsed.csv") or ok
+        out_csv = out/"lnk_windows_recent_parsed.csv"
+        if _parse_lnk_dir_internal(w, out_csv, "WindowsRecent"):
+            ok = copy_file(out_csv, case/"INPUT_PYTHON"/"lnk_windows_recent_parsed.csv") or ok
     else:
         log("[SKIP] LNK_WindowsRecent folder was not selected or found.")
     if o and o.exists():
-        rc = run([str(LECMD), "-d", str(o), "--csv", str(out), "--csvf", "lnk_office_recent_parsed.csv"])
-        if rc == 0:
-            ok = copy_file(out/"lnk_office_recent_parsed.csv", case/"INPUT_PYTHON"/"lnk_office_recent_parsed.csv") or ok
+        out_csv = out/"lnk_office_recent_parsed.csv"
+        if _parse_lnk_dir_internal(o, out_csv, "OfficeRecent"):
+            ok = copy_file(out_csv, case/"INPUT_PYTHON"/"lnk_office_recent_parsed.csv") or ok
     else:
         log("[SKIP] LNK_OfficeRecent folder was not selected or found.")
     return ok
@@ -287,10 +477,10 @@ def detect(case: Path, all_files=True, keyword="", mft_file="", usn_file="", pre
         write_placeholder_csv(case/"INPUT_PYTHON"/"i30_parsed.csv", ["record_type","parent_path","parent_mft_ref","parent_sequence","file_name","attributes","child_mft_ref","child_sequence","logical_size","allocated_size","i30_created_utc","i30_modified_utc","i30_accessed_utc","i30_changed_utc"])
     log("[INFO] Artifact-flexible detect: missing artifacts are unavailable evidence, not fatal errors.")
     empty_log(case)
-    if not MINI_NLT.exists():
-        log(f"[ERROR] mini_nlt_prototype.py is missing: {MINI_NLT}")
+    if not OATFD_ENGINE.exists():
+        log(f"[ERROR] oatfd_engine.py is missing: {OATFD_ENGINE}")
         return False
-    cmd = [sys.executable, str(MINI_NLT), "--input", str(case/"INPUT_PYTHON"), "--detect-only"]
+    cmd = [sys.executable, str(OATFD_ENGINE), "--input", str(case/"INPUT_PYTHON"), "--detect-only"]
     if all_files: cmd.append("--all-files")
     if keyword: cmd += ["--target-path-keyword", keyword]
     cmd += ["--tool-roots", str(TOOLS_DIR)]
