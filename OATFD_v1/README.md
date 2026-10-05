@@ -1,54 +1,70 @@
-# OATFD v1.0 — Operational Artifact-based Timestamp Forensic Detector
+# OATFD v1.0 — Thesis Release
 
-**Thesis Edition · Telkom University 2026**
+**OATFD (Operational Artifact-based Timestamp Forensic Detector) v1.0** is a cross-artifact forensic triage system for detecting indicators of NTFS timestamp manipulation. This repository contains the implementation submitted with and cited in:
 
-## Overview
+> Husnul Hafshah Devi, Maman Abdurohman, and Yudi Prayudi, *"A Cross-Artifact Forensic Triage Method for Detecting NTFS Timestamp Manipulation,"* International Journal of Electrical and Computer Engineering (IJECE), 2026.
 
-OATFD v1.0 is the thesis implementation of a causal-timeline reasoning engine for NTFS artifact-based timestamp-manipulation analysis. The system evaluates timestamp-manipulation indications by combining evidence from available NTFS-related artifacts:
+> Husnul Hafshah Devi, *"Development of a Cross-Artifact Forensic Triage Method for Detecting Indicators of NTFS Timestamp Manipulation"* (M.S.F. thesis), School of Computing, Telkom University, Bandung, Indonesia, 2026.
 
-- MFT-derived metadata
-- USN Journal records
-- $LogFile transitions
-- Prefetch / LNK context
-- $I30 directory-index evidence (when available)
+---
 
-A timestamp anomaly is **not** automatically classified as manipulation. The engine applies causal-timeline reasoning to distinguish high-confidence post-creation metadata manipulation from normal lifecycle behavior (file creation, copy/backup timestamp inheritance, tunneling-like delete-create sequences, parser timezone representation differences, and context-only support artifacts).
+## Repository contents
 
-## Output Categories
+| File / Folder | Description |
+|---|---|
+| `OATFD_v1/oatfd_engine.py` | **Main engine.** Scoring-rule version `OATFD_v1_0_causal_timeline_guard`. Contains the ECP scoring model, ten-guard normality architecture, and eleven-level decision cascade. |
+| `OATFD_v1/artifact_filepicker_lfp_engine.py` | Full-pipeline launcher (includes $LogFile corroboration path — recommended). |
+| `OATFD_v1/artifact_filepicker_engine.py` | Simplified launcher (without $LogFile). |
+| `OATFD_v1/visual_report_generator.py` | Report visualisation helper. |
+| `OATFD_v1/TOOLS/` | Third-party forensic utilities (MFTECmd, PECmd, LECmd, LogFileParser). Each retains its own licence (see `LICENSE_*.md` files). |
+| `OATFD_v1/README_OATFD_V1_THESIS.txt` | Detailed operational notes and version constants. |
+
+---
+
+## Output labels
 
 | Label | Meaning |
 |---|---|
-| **Suspicious High** | High-confidence primary timestamp-manipulation decision |
-| **Need Review** | Ambiguous or insufficiently corroborated candidate — requires analyst review |
-| **High-Risk Non-Primary Artifact** | Contextual signals; not a final timestamp-manipulation verdict |
-| **Normal** | Observed artifact pattern sufficiently explained by ordinary operation grammar |
+| **Suspicious High** | High-confidence primary timestamp-manipulation verdict. |
+| **Need Review** | Ambiguous or insufficiently corroborated; requires analyst review. |
+| **High-Risk Non-Primary Artifact** | Non-primary system file with suspicious mutation pattern; flagged for analyst attention, distinct from primary-target verdicts. |
+| **Normal** | Pattern is sufficiently explained by ordinary filesystem operation. |
 
-## How to Run
+---
 
-1. Extract the package to a short path, e.g. `C:\OATFD_V1\`
-2. Run `RUN_FILEPICKER_LFP_APP.bat`
-3. Select the relevant artifact files through the GUI
-4. Review outputs in the generated `OATFD_OUTPUT` folder
+## How to run
 
-## Version Constants
+1. Extract the package to a short path, e.g. `C:\OATFD_V1\`.
+2. Run `RUN_FILEPICKER_LFP_APP.bat` (recommended — includes $LogFile corroboration).
+3. Select artifact files through the GUI.
+4. Review results in the generated `OATFD_OUTPUT` folder.
+
+Command-line (direct):
+```
+python OATFD_v1/oatfd_engine.py --case "Z:\Thesis\Case_E01" --all
+python OATFD_v1/oatfd_engine.py --input "Z:\Thesis\Case_E01\INPUT_PYTHON" --detect-only --all-files
+```
+
+---
+
+## Version constants
 
 ```
-OATFD_VERSION        = OATFD v1.0 Causal-Timeline Guard Thesis Edition
-SCORING_RULE_VERSION = OATFD_v1_0_causal_timeline_guard
+OATFD_VERSION        = "OATFD v1.0 Causal-Timeline Guard Thesis Edition"
+SCORING_RULE_VERSION = "OATFD_v1_0_causal_timeline_guard"
 ```
 
-## Recommended Thesis Citation Wording
+---
 
-> "This thesis uses OATFD v1.0 Thesis Edition as the evaluated implementation. Version 1.0 denotes the consolidated thesis release, not a sequence of public software revisions."
+## Evaluation dataset
 
-## Files
+The forensic disk image (E01) underlying the final evaluation is **not distributed** due to its size. MD5 and SHA1 checksums are reported in the thesis (Section 4.1) and the journal paper (Section 4.1) to support independent integrity verification.
 
-| File | Description |
-|---|---|
-| `oatfd_engine.py` | Core detection engine |
-| `artifact_filepicker_engine.py` | GUI artifact file picker |
-| `artifact_filepicker_lfp_engine.py` | GUI artifact file picker (LFP variant) |
-| `NTFS_Artifact_FilePicker_App.py` | App launcher |
-| `NTFS_Artifact_FilePicker_LFP_App.py` | App launcher (LFP variant) |
-| `visual_report_generator.py` | Visual report generator |
-| `TOOLS/` | Bundled dependencies (sqlite3.dll, etc.) |
+---
+
+## Contact
+
+**Corresponding author:** Husnul Hafshah Devi — devii.hafshah@gmail.com  
+ORCID: [0009-0007-7508-6629](https://orcid.org/0009-0007-7508-6629)  
+Google Scholar: [jEY28OcAAAAJ](https://scholar.google.com/citations?user=jEY28OcAAAAJ)  
+SINTA: [7023376](https://sinta.kemdiktisaintek.go.id/authors/profile/7023376)
